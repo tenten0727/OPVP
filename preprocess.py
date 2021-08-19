@@ -34,7 +34,7 @@ def preprocessor_book(file_path):
     df_feature = pd.DataFrame(df.groupby(['time_id']).agg(create_feature_dict)).reset_index()
     df_feature.columns = ['_'.join(col) for col in df_feature.columns]
     
-    last_seconds = [100, 150, 200, 250, 300, 350, 400, 450, 500]
+    last_seconds = [150, 300, 450]
     
     for second in last_seconds:
         second = 600 - second
@@ -68,7 +68,7 @@ def preprocessor_trade(file_path):
     df_feature = df_feature.reset_index()
     df_feature.columns = ['_'.join(col) for col in df_feature.columns]
     
-    last_seconds = [100, 150, 200, 250, 300, 350, 400, 450, 500]
+    last_seconds = [150, 300, 450]
     
     for second in last_seconds:
         second = 600 - second
@@ -109,4 +109,26 @@ def preprocessor(list_stock_ids, is_train = True):
     )
     
     df = pd.concat(df, ignore_index=True)
+    return df
+
+# refs: https://www.kaggle.com/ragnar123/optiver-realized-volatility-lgbm-baseline
+def get_time_stock(df):
+    vol_cols = [s for s in list(df.columns) if 'realized_volatility' in s]
+    
+    # Group by the stock id
+    df_stock_id = df.groupby(['stock_id'])[vol_cols].agg(['mean', 'std', 'max', 'min', ]).reset_index()
+    # Rename columns joining suffix
+    df_stock_id.columns = ['_'.join(col) for col in df_stock_id.columns]
+    df_stock_id = df_stock_id.add_suffix('_' + 'stock')
+
+    # Group by the stock id
+    df_time_id = df.groupby(['time_id'])[vol_cols].agg(['mean', 'std', 'max', 'min', ]).reset_index()
+    # Rename columns joining suffix
+    df_time_id.columns = ['_'.join(col) for col in df_time_id.columns]
+    df_time_id = df_time_id.add_suffix('_' + 'time')
+    
+    # Merge with original dataframe
+    df = df.merge(df_stock_id, how = 'left', left_on = ['stock_id'], right_on = ['stock_id__stock'])
+    df = df.merge(df_time_id, how = 'left', left_on = ['time_id'], right_on = ['time_id__time'])
+    df.drop(['stock_id__stock', 'time_id__time'], axis = 1, inplace = True)
     return df
