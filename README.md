@@ -128,3 +128,6 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 * nb003
   * 特徴量とモデルを読み込んでテストするテンプレ
 * 銘柄間の相関関係をモデルに組み込めればうまくいくかも？[Discussion](https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/256356])
+
+### 20210819
+* pd.read_pickleがkaggleのノートブックでうまく動かない。
