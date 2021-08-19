@@ -107,11 +107,11 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 
     足し算で連続する時間のリターンを表せる。
 
-  - volality
+  - realized volatility
 
-    今回は１０分間のvolalityを予測。
-
-    オーダーブックの全アップデートごとのログリターンを計算しその２乗和の平方根でvolalityを定義。
+    オーダーブックの全アップデートごとのログリターンを計算しその２乗和の平方根でvolatilityを定義。
+    
+    与えられた最初の10分間のvolatilityをreallzed volatilityとして特徴量に使っている？
 
     ログリターンの計算のために加重平均価格を使用している。
 
@@ -130,4 +130,9 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 * 銘柄間の相関関係をモデルに組み込めればうまくいくかも？[Discussion](https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/256356])
 
 ### 20210819
-* pd.read_pickleがkaggleのノートブックでうまく動かない。
+* pd.read_pickleがkaggleのノートブックでうまく動かない。-> pickle.dump()で保存したらうまく行った。
+* nb004
+  * stock_id, time_idごとに集約し統計量をとったものを特徴量に追加
+* [AutoEncoderで特徴量を追加してMLPで予測](https://www.kaggle.com/gogo827jz/jane-street-supervised-autoencoder-mlp?scriptVersionId=56093968)
+* 予測用のノートをkaggleの方で作ったけど提出したらスコアが下がりすぎておかしい。ちゃんと読み込めてるから単純に学習がおかしい？
+* 
