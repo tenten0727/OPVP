@@ -134,5 +134,4 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 * nb004
   * stock_id, time_idごとに集約し統計量をとったものを特徴量に追加
 * [AutoEncoderで特徴量を追加してMLPで予測](https://www.kaggle.com/gogo827jz/jane-street-supervised-autoencoder-mlp?scriptVersionId=56093968)
-* 予測用のノートをkaggleの方で作ったけど提出したらスコアが下がりすぎておかしい。ちゃんと読み込めてるから単純に学習がおかしい？
-* 
+* 予測用のノートをkaggleの方で作ったけど提出したらスコアが下がりすぎておかしい。ちゃんと読み込めてるから単純に学習がおかしい？->予測に使う特徴量を指定していなかったから（なんで指定しないといけないのかよくわからん）lgbmわかってないな
