@@ -118,3 +118,13 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 * nb001
   * lightgbmでとりあえず提出
   * score: 0.21937
+* pickleで特徴量とモデルを保存してnotebookで読み込み
+  * pythonのversionを合わせてなかったからエラー出た。
+
+
+### 20210818
+* nb002
+  * pickleで特徴量とモデル保存
+* nb003
+  * 特徴量とモデルを読み込んでテストするテンプレ
+* 銘柄間の相関関係をモデルに組み込めればうまくいくかも？[Discussion](https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/256356])
