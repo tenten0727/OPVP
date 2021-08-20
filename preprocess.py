@@ -121,7 +121,7 @@ def get_time_stock(df):
     df_stock_id.columns = ['_'.join(col) for col in df_stock_id.columns]
     df_stock_id = df_stock_id.add_suffix('_' + 'stock')
 
-    # Group by the stock id
+    # Group by the time id
     df_time_id = df.groupby(['time_id'])[vol_cols].agg(['mean', 'std', 'max', 'min', ]).reset_index()
     # Rename columns joining suffix
     df_time_id.columns = ['_'.join(col) for col in df_time_id.columns]
