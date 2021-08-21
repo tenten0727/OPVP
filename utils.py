@@ -54,3 +54,8 @@ def rmspe(y_true, y_pred):
 def feval_RMSPE(preds, lgbm_train):
     labels = lgbm_train.get_label()
     return 'RMSPE', round(rmspe(y_true = labels, y_pred = preds), 5), False
+
+def ffill(data_df):
+    data_df=data_df.set_index(['time_id', 'seconds_in_bucket'])
+    data_df = data_df.reindex(pd.MultiIndex.from_product([data_df.index.levels[0], np.arange(0,600)], names = ['time_id', 'seconds_in_bucket']), method='ffill')
+    return data_df.reset_index()
