@@ -1,12 +1,14 @@
 import pandas as pd
 import numpy as np
-from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique
+from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, ffill
+from sklearn.model_selection import KFold
 
 
 data_dir = '../input/optiver-realized-volatility-prediction/'
 
 def preprocessor_book(file_path):
     df = pd.read_parquet(file_path)
+    # df = ffill(df)
     df['wap'] = calc_wap(df)
     df['log_return'] = df.groupby('time_id')['wap'].apply(log_return)
     df['wap2'] = calc_wap2(df)
@@ -132,3 +134,60 @@ def get_time_stock(df):
     df = df.merge(df_time_id, how = 'left', left_on = ['time_id'], right_on = ['time_id__time'])
     df.drop(['stock_id__stock', 'time_id__time'], axis = 1, inplace = True)
     return df
+
+def target_encoding(df_train, df_test, is_test=False):
+    df_train['stock_id'] = df_train['row_id'].apply(lambda x:x.split('-')[0])
+    df_test['stock_id'] = df_test['row_id'].apply(lambda x:x.split('-')[0])
+
+    stock_id_target_mean = df_train.groupby('stock_id')['target'].mean()
+    df_test['stock_id_target_enc'] = df_test['stock_id'].map(stock_id_target_mean)
+
+    if not is_test:
+        tmp = np.repeat(np.nan, df_train.shape[0])
+        kf = KFold(n_splits=10, shuffle=True, random_state=55)
+        for idx_1, idx_2 in kf.split(df_train):
+            target_mean = df_train.iloc[idx_1].groupby('stock_id')['target'].mean()
+
+            tmp[idx_2] = df_train['stock_id'].iloc[idx_2].map(target_mean)
+        df_train['stock_id_target_enc'] = tmp
+    
+    return df_train, df_test
+
+def create_all_feature():
+    train = pd.read_csv(data_dir + 'train.csv')
+    train_ids = train.stock_id.unique()
+    df_train = preprocessor(list_stock_ids=train_ids, is_train=True)
+    train['row_id'] = train['stock_id'].astype(str) + '-' + train['time_id'].astype(str)
+    train = train[['row_id', 'target']]
+    df_train = train.merge(df_train, on=['row_id'], how='left')
+    
+    test = pd.read_csv(data_dir + 'test.csv')
+    test_ids = test.stock_id.unique()
+    df_test = preprocessor(list_stock_ids= test_ids, is_train = False)
+    df_test = test.merge(df_test, on = ['row_id'], how = 'left')
+    
+    #TE
+    df_train, df_test = target_encoding(df_train, df_test)
+    
+    df_train['time_id'] = df_train['row_id'].apply(lambda x:x.split('-')[1])
+    df_train = get_time_stock(df_train)
+    df_test = get_time_stock(df_test)
+    df_train = df_train.drop(['time_id'], axis=1)
+    
+    df_train['stock_id'] = df_train['stock_id'].astype(int)
+    df_test['stock_id'] = df_test['stock_id'].astype(int)
+    
+    return df_train, df_test
+
+def create_test_feature(df_train):
+    test = pd.read_csv(data_dir + 'test.csv')
+    test_ids = test.stock_id.unique()
+    df_test = preprocessor(list_stock_ids= test_ids, is_train = False)
+    df_test = test.merge(df_test, on = ['row_id'], how = 'left')
+
+    target_encoding(df_train, df_test, is_test=True)
+
+    df_test['stock_id'] = df_test['stock_id'].astype(int)
+    df_test = get_time_stock(df_test)
+    
+    return df_test
