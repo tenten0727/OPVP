@@ -69,6 +69,11 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 * row_id - test.csvの定義と同じです。
 * target - train.csvと同じ定義です。ベンチマークではtrain.csvの中央値のターゲット値を使用しています。
 
+
+## Score
+
+[notion](https://www.notion.so/Score-8b319ffc71294c76a0182a3e784363b2)にまとめておく
+
 ---
 
 ## Log
@@ -135,3 +140,15 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
   * stock_id, time_idごとに集約し統計量をとったものを特徴量に追加
 * [AutoEncoderで特徴量を追加してMLPで予測](https://www.kaggle.com/gogo827jz/jane-street-supervised-autoencoder-mlp?scriptVersionId=56093968)
 * 予測用のノートをkaggleの方で作ったけど提出したらスコアが下がりすぎておかしい。ちゃんと読み込めてるから単純に学習がおかしい？->予測に使う特徴量を指定していなかったから（なんで指定しないといけないのかよくわからん）lgbmわかってないな
+
+### 20210820
+* 昨日のlgbmの件
+  * trainとtestで特徴量の順番が違うため揃える必要があった！！
+* idごとに別のモデルで学習させる
+* [metricとfevalについて](https://tawara.hatenablog.com/entry/2020/05/09/162633)
+* nb006
+  * bookデータで落ちている秒数の部分をffillで埋める(https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/251277)
+* nb005
+  * nb004の特徴量で学習
+* nb007
+  * ffillしたデータで学習したモデル作成
