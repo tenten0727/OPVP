@@ -147,8 +147,25 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 * idごとに別のモデルで学習させる
 * [metricとfevalについて](https://tawara.hatenablog.com/entry/2020/05/09/162633)
 * nb006
-  * bookデータで落ちている秒数の部分をffillで埋める(https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/251277)
+  * [bookデータで落ちている秒数の部分をffillで埋める](https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/251277)
 * nb005
   * nb004の特徴量で学習
 * nb007
   * ffillしたデータで学習したモデル作成
+  * score down
+
+### 20210821
+* nb008
+  * ffillなしnb005と同じ結果になるのか確認
+* [以前のマーケット関連のコンペ](https://www.kaggle.com/c/jane-street-market-prediction/)
+* nb009
+  * issue9, 10を実験
+  * https://www.kaggle.com/junjitakeshima/optiver-beginner-s-gradual-improvement-eng
+* nb010
+  * lgbm gpuで学習
+  * targetにlogだけ適用
+
+### 20210824
+* 3日も空けてしまった・・・毎日何かしらの成果を残す！
+* targetをlogとって実験したが、ValScoreが下がった（重み付けのせいか？）
+* lgbm gpuがかなり遅くなった。。。なぜ？
