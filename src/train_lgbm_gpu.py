@@ -16,17 +16,20 @@ sys.path.append('..')
 from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, calc_mean_importance, calc_model_importance, plot_importance, rmspe, feval_RMSPE
 from preprocess import create_all_feature
 
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
 LOAD_DATA = True
 
 def main():
     dt = datetime.date.today()
-    fm_path = "output/feature_model/" + dt.strftime("%Y%m%d")
+    fm_path = "../output/feature_model/" + dt.strftime("%Y%m%d")
     if not os.path.isdir(fm_path):
-        os.makedirs(fm_path)
+        num = 0
+    else:
+        num = sum(os.path.isdir(os.path.join(fm_path, name)) for name in os.listdir(fm_path))
+    fm_path += '/' + str(num)
+    os.makedirs(fm_path)
         
     if LOAD_DATA:
-        with open('/home/yoshikawa/work/kaggle/OPVP/output/feature/nb004/train.pkl', 'rb') as f:
+        with open('/home/yoshikawa/work/kaggle/OPVP/output/feature_model/20210824/0/train.pkl', 'rb') as f:
             df_train = pickle.load(f)
     else:
         df_train, df_test = create_all_feature()
