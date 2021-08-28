@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from pytorch_tabnet.metrics import Metric
+
 
 # 加重平均価格
 def calc_wap(df):
@@ -54,6 +56,14 @@ def rmspe(y_true, y_pred):
 def feval_RMSPE(preds, lgbm_train):
     labels = lgbm_train.get_label()
     return 'RMSPE', round(rmspe(y_true = labels, y_pred = preds), 5), False
+
+class RMSPE(Metric):
+    def __init__(self):
+        self._name = "rmspe"
+        self._maximize = False
+
+    def __call__(self, y_true, y_score):
+        return rmspe(y_true, y_score)
 
 def ffill(data_df):
     data_df=data_df.set_index(['time_id', 'seconds_in_bucket'])
