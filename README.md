@@ -169,3 +169,16 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 * 3日も空けてしまった・・・毎日何かしらの成果を残す！
 * targetをlogとって実験したが、ValScoreが下がった（重み付けのせいか？）
 * lgbm gpuがかなり遅くなった。。。なぜ？
+
+### 20210828
+* autoencoderで特徴量作ってみる
+* dataset, dataloader
+
+### 20210829
+* nb012
+  * denoising autoencoderを実装、noiseを入れる処理がなかなか時間かかる。。。
+  * ミニバッチ学習の際のvalidationについて質問させていただいた。
+
+### 20210830
+ * denoising autoencoderで圧縮したデータを追加で入れてみてlgbmしてみる
+ * 
