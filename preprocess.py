@@ -36,7 +36,7 @@ def preprocessor_book(file_path):
     df_feature = pd.DataFrame(df.groupby(['time_id']).agg(create_feature_dict)).reset_index()
     df_feature.columns = ['_'.join(col) for col in df_feature.columns]
     
-    last_seconds = [150, 300, 450]
+    last_seconds = [100, 200, 300, 400, 500]
     
     for second in last_seconds:
         second = 600 - second
@@ -58,19 +58,51 @@ def preprocessor_book(file_path):
 def preprocessor_trade(file_path):
     df = pd.read_parquet(file_path)
     df['log_return'] = df.groupby('time_id')['price'].apply(log_return)
-    
+    df['amount'] = df['price'] * df['size']
     aggregate_dictionary = {
         'log_return':[realized_volatility],
         'seconds_in_bucket':[count_unique],
-        'size':[np.sum],
-        'order_count':[np.mean],
+        'size':[np.sum, np.max, np.min],
+        'order_count':[np.mean, np.max],
+        'amount':[np.mean, np.max, np.min],
     }
     
     df_feature = df.groupby('time_id').agg(aggregate_dictionary)
     df_feature = df_feature.reset_index()
     df_feature.columns = ['_'.join(col) for col in df_feature.columns]
     
-    last_seconds = [150, 300, 450]
+    # 値動きの大きさ的なものを表してる？
+    def tendency(price, vol):
+        df_diff = np.diff(price)
+        val = (df_diff/price[1:]) * 100
+        power = np.sum(val*vol[1:])
+        return (power)
+
+    lis = []
+    for n_time_id in df['time_id'].unique():
+        df_id = df[df['time_id'] == n_time_id]
+        tendencyV = tendency(df_id['price'].values, df_id['size'].values)
+        f_max = np.sum(df_id['price'].values > np.mean(df_id['price'].values))
+        f_min = np.sum(df_id['price'].values < np.mean(df_id['price'].values))
+        df_max = np.sum(np.diff(df_id['price'].values) > 0)
+        df_min = np.sum(np.diff(df_id['price'].values) < 0)
+        
+        abs_diff = np.median(np.abs(df_id['price'].values - np.mean(df_id['price'].values)))
+        energy = np.mean(df_id['price'].values ** 2)
+        # 四分位範囲
+        iqr_p = np.percentile(df_id['price'].values, 75) - np.percentile(df_id['price'].values, 25)
+        
+        abs_diff_v = np.median(np.abs(df_id['size'].values - np.mean(df_id['size'].values)))
+        energy_v = np.mean(df_id['size'].values ** 2)
+        iqr_p_v = np.percentile(df_id['size'].values, 75) - np.percentile(df_id['size'].values, 25)
+        
+        lis.append({'time_id':n_time_id,'tendency':tendencyV,'f_max':f_max,'f_min':f_min,'df_max':df_max,'df_min':df_min,
+            'abs_diff':abs_diff,'energy':energy,'iqr_p':iqr_p,'abs_diff_v':abs_diff_v,'energy_v':energy_v,'iqr_p_v':iqr_p_v})
+        
+    df_lr = pd.DataFrame(lis)
+    df_feature = df_feature.merge(df_lr, how = 'left', left_on = 'time_id_', right_on = 'time_id')
+    
+    last_seconds = [100, 200, 300, 400, 500]
     
     for second in last_seconds:
         second = 600 - second
