@@ -16,7 +16,7 @@ sys.path.append('..')
 from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, calc_mean_importance, calc_model_importance, plot_importance, rmspe, feval_RMSPE
 from preprocess import create_all_feature
 
-LOAD_DATA = True
+LOAD_DATA = False
 
 def main():
     dt = datetime.date.today()
@@ -29,9 +29,11 @@ def main():
     os.makedirs(fm_path)
         
     if LOAD_DATA:
+        print('Load data...')
         with open('/home/yoshikawa/work/kaggle/OPVP/output/feature_model/20210824/0/train.pkl', 'rb') as f:
             df_train = pickle.load(f)
     else:
+        print('Create data...')
         df_train, df_test = create_all_feature()
         
     # 特徴量保存
@@ -90,7 +92,8 @@ def main():
         print("*" * 100)
         
     print('Score: ', scores)
-    
+    with open(fm_path+'/score.txt', 'w') as f:
+        f.write(str(scores))
     # モデル保存
     for i, model in enumerate(models):
         pickle.dump(model, open(fm_path+"/lgbm"+str(i)+".pkl", 'wb'))
