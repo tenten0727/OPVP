@@ -8,6 +8,7 @@ import lightgbm as lgbm
 from sklearn.model_selection import KFold
 import pickle
 import datetime
+import argparse
 
 import os
 import sys
@@ -16,9 +17,12 @@ sys.path.append('..')
 from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, calc_mean_importance, calc_model_importance, plot_importance, rmspe, feval_RMSPE
 from preprocess import create_all_feature
 
-LOAD_DATA = False
-
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--train_path', type=str, default='')
+    
+    opts = parser.parse_args()
+    
     dt = datetime.date.today()
     fm_path = "../output/feature_model/" + dt.strftime("%Y%m%d")
     if not os.path.isdir(fm_path):
@@ -28,13 +32,13 @@ def main():
     fm_path += '/' + str(num)
     os.makedirs(fm_path)
         
-    if LOAD_DATA:
-        print('Load data...')
-        with open('/home/yoshikawa/work/kaggle/OPVP/output/feature_model/20210824/0/train.pkl', 'rb') as f:
-            df_train = pickle.load(f)
-    else:
+    if opts.train_path == '':
         print('Create data...')
         df_train, df_test = create_all_feature()
+    else:
+        print('Load data...')
+        with open(opts.train_path, 'rb') as f:
+            df_train = pickle.load(f)
         
     # 特徴量保存
     pickle.dump(df_train, open(os.path.join(fm_path, "train.pkl"), 'wb'))
