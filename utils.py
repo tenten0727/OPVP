@@ -73,15 +73,12 @@ def ffill(data_df):
     data_df = data_df.reindex(pd.MultiIndex.from_product([data_df.index.levels[0], np.arange(0,600)], names = ['time_id', 'seconds_in_bucket']), method='ffill')
     return data_df.reset_index()
 
-def create_save_folder():
+def create_save_folder(save_name):
     dt = datetime.date.today()
     fm_path = "../output/feature_model/" + dt.strftime("%Y%m%d")
+    fm_path += '/' + save_name
     if not os.path.isdir(fm_path):
-        num = 0
-    else:
-        num = sum(os.path.isdir(os.path.join(fm_path, name)) for name in os.listdir(fm_path))
-    fm_path += '/' + str(num)
-    os.makedirs(fm_path)
+        os.makedirs(fm_path)
     
     return fm_path
 

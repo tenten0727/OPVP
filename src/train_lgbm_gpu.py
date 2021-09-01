@@ -20,17 +20,15 @@ from preprocess import create_all_feature
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--train_path', type=str, default='')
+    parser.add_argument('--save_name', type=str, default='lgbm')
     
     opts = parser.parse_args()
     
     dt = datetime.date.today()
     fm_path = "../output/feature_model/" + dt.strftime("%Y%m%d")
+    fm_path += '/' + opts.save_name
     if not os.path.isdir(fm_path):
-        num = 0
-    else:
-        num = sum(os.path.isdir(os.path.join(fm_path, name)) for name in os.listdir(fm_path))
-    fm_path += '/' + str(num)
-    os.makedirs(fm_path)
+        os.makedirs(fm_path)
         
     if opts.train_path == '':
         print('Create data...')
