@@ -181,4 +181,20 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 
 ### 20210830
  * denoising autoencoderで圧縮したデータを追加で入れてみてlgbmしてみる
- * 
+ * output/feature_model/20210830/1 ... DAEのモデル
+ * lgbm-gpugpuほぼつかってないし、cpuの方に速さがかなり依存してるっぽい？誰も使ってないサーバで動かしたら早かった。
+ * 新たな特徴量の参考→ https://www.kaggle.com/hijest/lgbm-nn-ensamble-2-0
+ * output/feature_model/20210830/3 ...現状一番良い
+
+### 20210831
+ * [ARCHモデル](https://ja.wikipedia.org/wiki/ARCH%E3%83%A2%E3%83%87%E3%83%AB)
+ * 参考をもとに特徴量追加→output/feature_model/20210831/1
+ * DAEで特徴量作成→output/feature_model/20210831/4
+
+### 20210901
+ * [discussion](https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/266354) シンプルなモデルがよい？
+ * stock_idを特徴量に入れると過学習するという意見もある。
+ * 2:DAEの特徴量追加
+ * new_feature_lgbm:　tauなどの特徴量
+ * embedding: https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html
+   * 今回はstock_idで埋め込みを行う
