@@ -41,7 +41,7 @@ def main():
     # 特徴量保存
     pickle.dump(df_train, open(os.path.join(fm_path, "train.pkl"), 'wb'))
     
-    X = df_train.drop(['row_id','target'],axis=1)
+    X = df_train.drop(['row_id', 'target', 'time_id'],axis=1)
     y = df_train['target']
     
     params = {
