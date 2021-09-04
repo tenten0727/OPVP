@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, ffill
 from sklearn.model_selection import KFold
+from sklearn import manifold
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 
 data_dir = '../input/optiver-realized-volatility-prediction/'
@@ -63,7 +66,7 @@ def preprocessor_trade(file_path):
         'log_return':[realized_volatility],
         'seconds_in_bucket':[count_unique],
         'size':[np.sum, np.max, np.min],
-        'order_count':[np.mean, np.max],
+        'order_count':[np.mean, np.max, np.sum],
         'amount':[np.mean, np.max, np.min],
     }
     
@@ -185,6 +188,54 @@ def target_encoding(df_train, df_test, is_test=False):
     
     return df_train, df_test
 
+def add_feature_tau(df_train, df_test):
+    # 単位時間あたりの注文数、エントリー数
+    df_train['size_tau'] = np.sqrt(1/df_train['trade_seconds_in_bucket_count_unique'])
+    df_test['size_tau'] = np.sqrt(1/df_test['trade_seconds_in_bucket_count_unique'])
+    df_train['size_tau_400'] = np.sqrt(1/df_train['trade_seconds_in_bucket_count_unique_400'])
+    df_test['size_tau_400'] = np.sqrt(1/df_test['trade_seconds_in_bucket_count_unique_400'])
+    df_train['size_tau_300'] = np.sqrt(1/df_train['trade_seconds_in_bucket_count_unique_300'])
+    df_test['size_tau_300'] = np.sqrt(1/df_test['trade_seconds_in_bucket_count_unique_300'])
+    df_train['size_tau_200'] = np.sqrt(1/df_train['trade_seconds_in_bucket_count_unique_200'])
+    df_test['size_tau_200'] = np.sqrt(1/df_test['trade_seconds_in_bucket_count_unique_200'])
+    
+    # tau2 
+    df_train['size_tau2'] = np.sqrt(1/df_train['trade_order_count_sum'])
+    df_test['size_tau2'] = np.sqrt(1/df_test['trade_order_count_sum'])
+    df_train['size_tau2_400'] = np.sqrt(0.25/df_train['trade_order_count_sum'])
+    df_test['size_tau2_400'] = np.sqrt(0.25/df_test['trade_order_count_sum'])
+    df_train['size_tau2_300'] = np.sqrt(0.5/df_train['trade_order_count_sum'])
+    df_test['size_tau2_300'] = np.sqrt(0.5/df_test['trade_order_count_sum'])
+    df_train['size_tau2_200'] = np.sqrt(0.75/df_train['trade_order_count_sum'])
+    df_test['size_tau2_200'] = np.sqrt(0.75/df_test['trade_order_count_sum'])
+
+    # delta tau
+    df_train['size_tau2_d'] = df_train['size_tau2_400'] - df_train['size_tau2']
+    df_test['size_tau2_d'] = df_test['size_tau2_400'] - df_test['size_tau2']
+    return df_train, df_test
+
+def add_feature_pca(df_train, df_test):
+    train_num_data = df_train.drop(['stock_id', 'time_id', 'row_id', 'target'], axis=1)
+    test_num_data = df_test.drop(['stock_id', 'time_id', 'row_id'], axis=1)
+    train_num_data = train_num_data.fillna(train_num_data.mean())
+    test_num_data = test_num_data.fillna(train_num_data.mean())
+
+    scaler = StandardScaler()
+    train_standard = scaler.fit_transform(train_num_data)
+    test_standard = scaler.transform(test_num_data)
+    
+    # tsne = manifold.TSNE(n_components=2, random_state=55)
+    # train_tsne = tsne.fit_transform(train_scaler)
+    # test_tsne = tsne.transform(test_scaler)
+    
+    pca = PCA(n_components=30)
+    train_pca = pca.fit_transform(train_standard)
+    test_pca = pca.transform(test_standard)
+    df_train_pca = pd.DataFrame(train_pca).add_prefix('pca_')
+    df_test_pca = pd.DataFrame(test_pca).add_prefix('pca_')
+    
+    return pd.concat([df_train, df_train_pca], axis=1), pd.concat([df_test, df_test_pca], axis=1)
+    
 def create_all_feature():
     train = pd.read_csv(data_dir + 'train.csv')
     train_ids = train.stock_id.unique()
@@ -204,8 +255,9 @@ def create_all_feature():
     df_train['time_id'] = df_train['row_id'].apply(lambda x:x.split('-')[1])
     df_train = get_time_stock(df_train)
     df_test = get_time_stock(df_test)
-    df_train = df_train.drop(['time_id'], axis=1)
-    
+    df_train, df_test = add_feature_tau(df_train, df_test)
+    df_train, df_test = add_feature_pca(df_train, df_test)
+
     df_train['stock_id'] = df_train['stock_id'].astype(int)
     df_test['stock_id'] = df_test['stock_id'].astype(int)
     
@@ -221,5 +273,7 @@ def create_test_feature(df_train):
 
     df_test['stock_id'] = df_test['stock_id'].astype(int)
     df_test = get_time_stock(df_test)
-    
+    df_train, df_test = add_feature_tau(df_train, df_test)
+    df_train, df_test = add_feature_pca(df_train, df_test)
+
     return df_test
