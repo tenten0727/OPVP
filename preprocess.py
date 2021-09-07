@@ -1,14 +1,68 @@
 import pandas as pd
 import numpy as np
-from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, ffill
+from utils import calc_wap, calc_wap2, calc_wap3, calc_wap4, log_return, realized_volatility, count_unique, ffill
 from sklearn.model_selection import KFold
 from sklearn import manifold
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, QuantileTransformer
 from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
 
 
 data_dir = '../input/optiver-realized-volatility-prediction/'
 last_seconds = [100, 200, 300, 400, 500]
+
+nnn = ['time_id',
+     'log_return_realized_volatility_0c1',
+     'log_return_realized_volatility_1c1',     
+     'log_return_realized_volatility_2c1',
+     'log_return_realized_volatility_3c1',     
+     'log_return_realized_volatility_6c1',
+     'total_volume_mean_0c1',
+     'total_volume_mean_1c1', 
+     'total_volume_mean_2c1',
+     'total_volume_mean_3c1', 
+     'total_volume_mean_6c1',
+     'trade_size_mean_0c1',
+     'trade_size_mean_1c1', 
+     'trade_size_mean_2c1',
+     'trade_size_mean_3c1', 
+     'trade_size_mean_6c1',
+     'trade_order_count_mean_0c1',
+     'trade_order_count_mean_1c1',
+     'trade_order_count_mean_2c1',
+     'trade_order_count_mean_3c1',
+     'trade_order_count_mean_6c1',      
+     'price_spread_mean_0c1',
+     'price_spread_mean_1c1',
+     'price_spread_mean_2c1',
+     'price_spread_mean_3c1',
+     'price_spread_mean_6c1',   
+     'bid_spread_mean_0c1',
+     'bid_spread_mean_1c1',
+     'bid_spread_mean_2c1',
+     'bid_spread_mean_3c1',
+     'bid_spread_mean_6c1',       
+     'ask_spread_mean_0c1',
+     'ask_spread_mean_1c1',
+     'ask_spread_mean_2c1',
+     'ask_spread_mean_3c1',
+     'ask_spread_mean_6c1',   
+     'volume_imbalance_mean_0c1',
+     'volume_imbalance_mean_1c1',
+     'volume_imbalance_mean_2c1',
+     'volume_imbalance_mean_3c1',
+     'volume_imbalance_mean_6c1',       
+     'price_spread_mean_0c1',
+     'price_spread_mean_1c1',
+     'price_spread_mean_2c1',
+     'price_spread_mean_3c1',
+     'price_spread_mean_6c1',
+     'size_tau2_0c1',
+     'size_tau2_1c1',
+     'size_tau2_2c1',
+     'size_tau2_3c1',
+     'size_tau2_6c1'
+     ] 
 
 def preprocessor_book(file_path):
     df = pd.read_parquet(file_path)
@@ -17,6 +71,10 @@ def preprocessor_book(file_path):
     df['log_return'] = df.groupby('time_id')['wap'].apply(log_return)
     df['wap2'] = calc_wap2(df)
     df['log_return2'] = df.groupby('time_id')['wap2'].apply(log_return)
+    df['wap3'] = calc_wap3(df)
+    df['log_return3'] = df.groupby('time_id')['wap3'].apply(log_return)
+    df['wap4'] = calc_wap4(df)
+    df['log_return4'] = df.groupby('time_id')['wap4'].apply(log_return)
 
     df['wap_balance'] = abs(df['wap'] - df['wap2'])
     df['price_spread'] = (df['ask_price1'] - df['bid_price1']) / ((df['ask_price1'] + df['bid_price1'])/2)
@@ -30,6 +88,8 @@ def preprocessor_book(file_path):
     create_feature_dict = {
         'log_return':[realized_volatility, np.mean, np.std, np.sum],
         'log_return2':[realized_volatility, np.mean, np.std, np.sum],
+        'log_return3':[realized_volatility, np.mean, np.std, np.sum],
+        'log_return4':[realized_volatility, np.mean, np.std, np.sum],
         'wap_balance':[np.mean, np.std, np.sum],
         'price_spread':[np.mean, np.std, np.sum],
         'bid_spread':[np.mean, np.std, np.sum],
@@ -40,6 +100,8 @@ def preprocessor_book(file_path):
         'bid_volume':[np.mean, np.std, np.sum],
         'wap':[np.mean, np.std, np.sum],
         'wap2':[np.mean, np.std, np.sum],
+        'wap3':[np.mean, np.std, np.sum],
+        'wap4':[np.mean, np.std, np.sum],
     }
     
     df_feature = pd.DataFrame(df.groupby(['time_id']).agg(create_feature_dict)).reset_index()
@@ -73,7 +135,7 @@ def preprocessor_trade(file_path):
         'log_return_per_size':[realized_volatility],
         'log_return_per_amount':[realized_volatility],
         'seconds_in_bucket':[count_unique],
-        'size':[np.sum, np.max, np.min],
+        'size':[np.mean, np.max, np.min],
         'order_count':[np.mean, np.max, np.sum],
         'amount':[np.mean, np.max, np.min],
     }
@@ -195,22 +257,30 @@ def target_encoding(df_train, df_test, is_test=False):
     return df_train, df_test
 
 def add_volatility_per_volume(df_train, df_test):
-    df_train['volatility_per_volume'] = df_train['log_return_realized_volatility'] / df_train['total_volume_mean']
     df_train['trade_volatility_per_volume'] = df_train['trade_log_return_realized_volatility'] / df_train['trade_order_count_mean']
+    df_train['volatility_per_volume'] = df_train['log_return_realized_volatility'] / df_train['total_volume_mean']
     df_train['volatility2_per_volume'] = df_train['log_return2_realized_volatility'] / df_train['total_volume_mean']
+    df_train['volatility3_per_volume'] = df_train['log_return3_realized_volatility'] / df_train['total_volume_mean']
+    df_train['volatility4_per_volume'] = df_train['log_return4_realized_volatility'] / df_train['total_volume_mean']
 
-    df_test['volatility_per_volume'] = df_test['log_return_realized_volatility'] / df_test['total_volume_mean']
     df_test['trade_volatility_per_volume'] = df_test['trade_log_return_realized_volatility'] / df_test['trade_order_count_mean']
+    df_test['volatility_per_volume'] = df_test['log_return_realized_volatility'] / df_test['total_volume_mean']
     df_test['volatility2_per_volume'] = df_test['log_return2_realized_volatility'] / df_test['total_volume_mean']
+    df_test['volatility3_per_volume'] = df_test['log_return3_realized_volatility'] / df_test['total_volume_mean']
+    df_test['volatility4_per_volume'] = df_test['log_return4_realized_volatility'] / df_test['total_volume_mean']
 
     for i in last_seconds:
-        df_train['volatility_per_volume_'+str(i)] = df_train['log_return_realized_volatility_'+str(i)] / df_train['total_volume_mean_'+str(i)]
         df_train['trade_volatility_per_volume_'+str(i)] = df_train['trade_log_return_realized_volatility_'+str(i)] / df_train['trade_order_count_mean_'+str(i)]
+        df_train['volatility_per_volume_'+str(i)] = df_train['log_return_realized_volatility_'+str(i)] / df_train['total_volume_mean_'+str(i)]
         df_train['volatility2_per_volume_'+str(i)] = df_train['log_return2_realized_volatility_'+str(i)] / df_train['total_volume_mean_'+str(i)]
+        df_train['volatility3_per_volume_'+str(i)] = df_train['log_return3_realized_volatility_'+str(i)] / df_train['total_volume_mean_'+str(i)]
+        df_train['volatility4_per_volume_'+str(i)] = df_train['log_return4_realized_volatility_'+str(i)] / df_train['total_volume_mean_'+str(i)]
 
-        df_test['volatility_per_volume_'+str(i)] = df_test['log_return_realized_volatility_'+str(i)] / df_test['total_volume_mean_'+str(i)]
         df_test['trade_volatility_per_volume_'+str(i)] = df_test['trade_log_return_realized_volatility_'+str(i)] / df_test['trade_order_count_mean_'+str(i)]
+        df_test['volatility_per_volume_'+str(i)] = df_test['log_return_realized_volatility_'+str(i)] / df_test['total_volume_mean_'+str(i)]
         df_test['volatility2_per_volume_'+str(i)] = df_test['log_return2_realized_volatility_'+str(i)] / df_test['total_volume_mean_'+str(i)]
+        df_test['volatility3_per_volume_'+str(i)] = df_test['log_return3_realized_volatility_'+str(i)] / df_test['total_volume_mean_'+str(i)]
+        df_test['volatility4_per_volume_'+str(i)] = df_test['log_return4_realized_volatility_'+str(i)] / df_test['total_volume_mean_'+str(i)]
 
     return df_train, df_test
 
@@ -262,6 +332,71 @@ def add_feature_pca(df_train, df_test):
     
     return pd.concat([df_train, df_train_pca], axis=1), pd.concat([df_test, df_test_pca], axis=1)
     
+def add_cluster_feature(df_train, df_test):
+    col_names = list(df_train)
+    col_names.remove('target')
+    col_names.remove('row_id')
+    col_names.remove('stock_id')
+    col_names.remove('time_id')
+
+    df_train.replace([np.inf, -np.inf], np.nan,inplace=True)
+    df_test.replace([np.inf, -np.inf], np.nan,inplace=True)
+
+    for col in col_names:
+        #正規分布になるよう非線形変換
+        qt = QuantileTransformer(random_state=55, n_quantiles=2000, output_distribution='normal')
+        df_train[col] = qt.fit_transform(df_train[[col]])
+        df_test[col] = qt.transform(df_test[[col]])
+    
+    train_p = pd.read_csv('../input/optiver-realized-volatility-prediction/train.csv')
+    train_p = train_p.pivot(index='time_id', columns='stock_id', values='target')
+
+    corr = train_p.corr()
+    ids = corr.index
+    kmeans = KMeans(n_clusters = 7, random_state=55).fit(corr.values)
+
+    l = []
+    for n in range(7):
+        l.append([(x-1) for x in ((ids + 1) * (kmeans.labels_ == n)) if x > 0])
+        
+    mat = []
+    matTest = []
+
+    for n, ind in enumerate(l):
+        df_new = df_train.loc[df_train['stock_id'].isin(ind)]
+        df_new = df_new.groupby(['time_id']).agg(np.nanmean)
+        df_new.loc[:, 'stock_id'] = str(n) + 'c1'
+        mat.append(df_new)
+
+        df_new = df_test.loc[df_test['stock_id'].isin(ind) ]    
+        df_new = df_new.groupby(['time_id']).agg(np.nanmean)
+        df_new.loc[:,'stock_id'] = str(n) + 'c1'
+        matTest.append(df_new)
+
+    mat1 = pd.concat(mat).reset_index()
+    mat1.drop(columns=['target'], inplace=True)
+    mat2 = pd.concat(matTest).reset_index()
+
+    matTest = []
+    mat = []
+    kmeans = []
+
+    mat2 = pd.concat([mat2,mat1.loc[mat1.time_id==5]])
+    mat1 = mat1.pivot(index='time_id', columns='stock_id')
+    mat1.columns = ["_".join(x) for x in mat1.columns.ravel()]
+    mat1.reset_index(inplace=True)
+
+    mat2 = mat2.pivot(index='time_id', columns='stock_id')
+    mat2.columns = ["_".join(x) for x in mat2.columns.ravel()]
+    mat2.reset_index(inplace=True)
+    print(mat2)
+    print(mat1[mat1.time_id==5])
+
+    df_train = pd.merge(df_train,mat1[nnn],how='left',on='time_id')
+    df_test = pd.merge(df_test,mat2[nnn],how='left',on='time_id')
+
+    return df_train, df_test
+
 def create_all_feature():
     train = pd.read_csv(data_dir + 'train.csv')
     train_ids = train.stock_id.unique()
@@ -278,12 +413,12 @@ def create_all_feature():
     #TE
     df_train, df_test = target_encoding(df_train, df_test)
     
-    df_train['time_id'] = df_train['row_id'].apply(lambda x:x.split('-')[1])
-    df_train = get_time_stock(df_train)
-    df_test = get_time_stock(df_test)
+    df_train['time_id'] = df_train['row_id'].apply(lambda x:(x.split('-')[1])).astype(int)
     df_train, df_test = add_volatility_per_volume(df_train, df_test)
     df_train, df_test = add_feature_tau(df_train, df_test)
-    df_train, df_test = add_feature_pca(df_train, df_test)
+    # df_train, df_test = add_feature_pca(df_train, df_test)
+    df_train = get_time_stock(df_train)
+    df_test = get_time_stock(df_test)
 
     df_train['stock_id'] = df_train['stock_id'].astype(int)
     df_test['stock_id'] = df_test['stock_id'].astype(int)
@@ -299,9 +434,14 @@ def create_test_feature(df_train):
     target_encoding(df_train, df_test, is_test=True)
 
     df_test['stock_id'] = df_test['stock_id'].astype(int)
+    _, df_test = add_volatility_per_volume(df_train, df_test)
+    _, df_test = add_feature_tau(df_train, df_test)
+    # df_train, df_test = add_feature_pca(df_train, df_test)
     df_test = get_time_stock(df_test)
-    df_train, df_test = add_volatility_per_volume(df_train, df_test)
-    df_train, df_test = add_feature_tau(df_train, df_test)
-    df_train, df_test = add_feature_pca(df_train, df_test)
 
     return df_test
+
+def after_create_feature(df_train, df_test):
+    df_train, df_test = add_cluster_feature(df_train, df_test)
+    df_train, df_test = add_feature_pca(df_train, df_test)
+    return df_train, df_test

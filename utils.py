@@ -16,6 +16,14 @@ def calc_wap2(df):
     wap = (df['bid_price2'] * df['ask_size2'] + df['ask_price2'] * df['bid_size2']) / (df['bid_size2'] + df['ask_size2'])
     return wap
 
+def calc_wap3(df):
+    wap = (df['bid_price1'] * df['bid_size1'] + df['ask_price1'] * df['ask_size1']) / (df['bid_size1'] + df['ask_size1'])
+    return wap
+
+def calc_wap4(df):
+    wap = (df['bid_price2'] * df['bid_size2'] + df['ask_price2'] * df['ask_size2']) / (df['bid_size2'] + df['ask_size2'])
+    return wap
+
 def log_return(list_stock_prices):
     return np.log(list_stock_prices).diff() 
 
