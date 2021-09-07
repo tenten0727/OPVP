@@ -15,7 +15,7 @@ import sys
 sys.path.append('..')
 
 from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, calc_mean_importance, calc_model_importance, plot_importance, rmspe, feval_RMSPE
-from preprocess import create_all_feature
+from preprocess import after_create_feature, create_all_feature
 
 def main():
     parser = argparse.ArgumentParser()
@@ -35,12 +35,17 @@ def main():
         df_train, df_test = create_all_feature()
     else:
         print('Load data...')
-        with open(opts.train_path, 'rb') as f:
+        with open(opts.train_path+'/train.pkl', 'rb') as f:
             df_train = pickle.load(f)
+        with open(opts.train_path+'/test.pkl', 'rb') as f:
+            df_test = pickle.load(f)
         
     # 特徴量保存
     pickle.dump(df_train, open(os.path.join(fm_path, "train.pkl"), 'wb'))
+    pickle.dump(df_test, open(os.path.join(fm_path, "test.pkl"), 'wb'))
     
+    df_train, df_test = after_create_feature(df_train, df_test)
+
     X = df_train.drop(['row_id', 'target', 'time_id'],axis=1)
     y = df_train['target']
     
@@ -99,6 +104,10 @@ def main():
     # モデル保存
     for i, model in enumerate(models):
         pickle.dump(model, open(fm_path+"/lgbm"+str(i)+".pkl", 'wb'))
+        imp = calc_model_importance(model, feature_names=X_train.columns.values.tolist())
+        plot_importance(imp.head(30), save_filepath=fm_path+'/imp_top30_'+str(i))
+        plot_importance(imp.tail(30), save_filepath=fm_path+'/imp_worst30_'+str(i))
+
     X_valid.columns.to_series().to_csv(os.path.join(fm_path, "columns.csv"), index=False)
 
 if __name__ == "__main__":
