@@ -51,12 +51,7 @@ nnn = ['time_id',
      'volume_imbalance_mean_1c1',
      'volume_imbalance_mean_2c1',
      'volume_imbalance_mean_3c1',
-     'volume_imbalance_mean_6c1',       
-     'price_spread_mean_0c1',
-     'price_spread_mean_1c1',
-     'price_spread_mean_2c1',
-     'price_spread_mean_3c1',
-     'price_spread_mean_6c1',
+     'volume_imbalance_mean_6c1',
      'size_tau2_0c1',
      'size_tau2_1c1',
      'size_tau2_2c1',
@@ -313,6 +308,8 @@ def add_feature_tau(df_train, df_test):
 def add_feature_pca(df_train, df_test):
     train_num_data = df_train.drop(['stock_id', 'time_id', 'row_id', 'target'], axis=1)
     test_num_data = df_test.drop(['stock_id', 'time_id', 'row_id'], axis=1)
+    train_num_data.replace([np.inf, -np.inf], np.nan, inplace = True)
+    test_num_data.replace([np.inf, -np.inf], np.nan, inplace = True)
     train_num_data = train_num_data.fillna(train_num_data.mean())
     test_num_data = test_num_data.fillna(train_num_data.mean())
 
@@ -339,14 +336,14 @@ def add_cluster_feature(df_train, df_test):
     col_names.remove('stock_id')
     col_names.remove('time_id')
 
-    df_train.replace([np.inf, -np.inf], np.nan,inplace=True)
-    df_test.replace([np.inf, -np.inf], np.nan,inplace=True)
+    train = df_train.replace([np.inf, -np.inf], np.nan)
+    test = df_test.replace([np.inf, -np.inf], np.nan)
 
     for col in col_names:
         #正規分布になるよう非線形変換
         qt = QuantileTransformer(random_state=55, n_quantiles=2000, output_distribution='normal')
-        df_train[col] = qt.fit_transform(df_train[[col]])
-        df_test[col] = qt.transform(df_test[[col]])
+        train[col] = qt.fit_transform(train[[col]]) #seriesかdataframeかで次元が変わる
+        test[col] = qt.transform(test[[col]])
     
     train_p = pd.read_csv('../input/optiver-realized-volatility-prediction/train.csv')
     train_p = train_p.pivot(index='time_id', columns='stock_id', values='target')
@@ -363,12 +360,12 @@ def add_cluster_feature(df_train, df_test):
     matTest = []
 
     for n, ind in enumerate(l):
-        df_new = df_train.loc[df_train['stock_id'].isin(ind)]
+        df_new = train.loc[train['stock_id'].isin(ind)]
         df_new = df_new.groupby(['time_id']).agg(np.nanmean)
         df_new.loc[:, 'stock_id'] = str(n) + 'c1'
         mat.append(df_new)
 
-        df_new = df_test.loc[df_test['stock_id'].isin(ind) ]    
+        df_new = test.loc[test['stock_id'].isin(ind) ]    
         df_new = df_new.groupby(['time_id']).agg(np.nanmean)
         df_new.loc[:,'stock_id'] = str(n) + 'c1'
         matTest.append(df_new)
@@ -389,8 +386,6 @@ def add_cluster_feature(df_train, df_test):
     mat2 = mat2.pivot(index='time_id', columns='stock_id')
     mat2.columns = ["_".join(x) for x in mat2.columns.ravel()]
     mat2.reset_index(inplace=True)
-    print(mat2)
-    print(mat1[mat1.time_id==5])
 
     df_train = pd.merge(df_train,mat1[nnn],how='left',on='time_id')
     df_test = pd.merge(df_test,mat2[nnn],how='left',on='time_id')
@@ -416,7 +411,6 @@ def create_all_feature():
     df_train['time_id'] = df_train['row_id'].apply(lambda x:(x.split('-')[1])).astype(int)
     df_train, df_test = add_volatility_per_volume(df_train, df_test)
     df_train, df_test = add_feature_tau(df_train, df_test)
-    # df_train, df_test = add_feature_pca(df_train, df_test)
     df_train = get_time_stock(df_train)
     df_test = get_time_stock(df_test)
 
@@ -436,12 +430,11 @@ def create_test_feature(df_train):
     df_test['stock_id'] = df_test['stock_id'].astype(int)
     _, df_test = add_volatility_per_volume(df_train, df_test)
     _, df_test = add_feature_tau(df_train, df_test)
-    # df_train, df_test = add_feature_pca(df_train, df_test)
     df_test = get_time_stock(df_test)
 
     return df_test
 
 def after_create_feature(df_train, df_test):
-    df_train, df_test = add_cluster_feature(df_train, df_test)
     df_train, df_test = add_feature_pca(df_train, df_test)
+    df_train, df_test = add_cluster_feature(df_train, df_test)
     return df_train, df_test
