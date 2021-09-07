@@ -195,6 +195,41 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
  * [discussion](https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/266354) シンプルなモデルがよい？
  * stock_idを特徴量に入れると過学習するという意見もある。
  * 2:DAEの特徴量追加
- * new_feature_lgbm:　tauなどの特徴量
+ * new_feature_lgbm2:　tauなどの特徴量
  * embedding: https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html
    * 今回はstock_idで埋め込みを行う
+
+### 20210901
+* kerasのcodeをpytorchに移植
+
+### 20210902
+* ひとまず思いつく特徴量をひたすら作る
+* ニューラルネットの初期値考える
+* t-sneで次元圧縮した特徴量追加
+  * 3次元以上は時間がかかる
+  * 元の特徴量が大きいと時間かかるし正確に行かないかも
+  * pcaしたものとかを入れるといい？
+* pcaで圧縮したデータを特徴量に追加
+
+### 20210903
+* epochごとにgpu使用メモリが増えてってエラーになる。。。（FFNN）
+* DataSet, DataLoaderあたりが怪しい？
+  * Dataloaderで返された値を随時gpuに渡す方が良さそう。
+* いや、lossを保存するときにitem()つけ忘れてtensorのまま保存してたからじゃないか？
+  * 計算グラフ全部持っとかないといけないからメモリだんだん食われて行ったのでは？→そうだったみたい。。。めっちゃハマった。。。
+* volumeで割った値を特徴量追加
+* output/feature_model/20210904/lgbm_add_feature: 割り算とかしてみた
+  * cvが上がった。realized_volatility系がかなり重要そう
+  * LBは上がらんかった
+
+### 20210904
+* クラスタリングして特徴量を作る
+
+
+### 20210907
+* time_idがstrになってた。intに変換して処理。
+* time_idでgroupkfoldの必要あり？
+* StratifiedGroupKfold使うべきでは？
+* 単純なKfoldの方がいいって言ってる人がいた（https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/262185）
+* GroupKFoldで行うと特定の時間帯の予測がかなり困難となってスコアが下がるみたい
+* 
