@@ -451,14 +451,15 @@ def create_test_feature(df_train):
     df_test = preprocessor(list_stock_ids= test_ids, is_train = False)
     df_test = test.merge(df_test, on = ['row_id'], how = 'left')
 
-    target_encoding(df_train, df_test, is_test=True)
+    df_train, df_test = target_encoding(df_train, df_test, is_test=True)
 
-    df_test['stock_id'] = df_test['stock_id'].astype(int)
     _, df_test = add_volatility_per_volume(df_train, df_test)
     _, df_test = add_feature_tau(df_train, df_test)
     df_test = get_time_stock(df_test)
     _, df_test = add_relative_distance(df_train, df_test)
 
+    df_train['stock_id'] = df_train['stock_id'].astype(int)
+    df_test['stock_id'] = df_test['stock_id'].astype(int)
     return df_test
 
 def after_create_feature(df_train, df_test):
