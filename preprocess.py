@@ -435,6 +435,7 @@ def create_all_feature():
     
     df_train['time_id'] = df_train['row_id'].apply(lambda x:(x.split('-')[1])).astype(int)
     df_train, df_test = add_volatility_per_volume(df_train, df_test)
+    df_train, df_test = add_relative_distance(df_train, df_test)
     df_train, df_test = add_feature_tau(df_train, df_test)
     df_train = get_time_stock(df_train)
     df_test = get_time_stock(df_test)
