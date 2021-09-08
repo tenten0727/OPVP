@@ -5,7 +5,7 @@ pd.set_option('max_rows', 300)
 pd.set_option('max_columns', 300)
 import glob
 import lightgbm as lgbm
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 import pickle
 import datetime
 import argparse
@@ -62,11 +62,14 @@ def main():
         'device':'gpu',
     }
     
-    kf = KFold(n_splits=5, random_state=55, shuffle=True)
+    num_bins = int(np.floor(1+np.log2(df_train.shape[0])))
+    target_bins = pd.cut(df_train['target'], bins=num_bins, labels=False)
+
+    kf = StratifiedKFold(n_splits=5, random_state=55, shuffle=True)
     models = []
     scores = 0.0
     
-    for fold, (trn_idx, val_idx) in enumerate(kf.split(X, y)):
+    for fold, (trn_idx, val_idx) in enumerate(kf.split(X, target_bins)):
         print(f'Fold: {fold+1}')
         X_train, y_train = X.loc[trn_idx], y.loc[trn_idx]
         X_valid, y_valid = X.loc[val_idx], y.loc[val_idx]
