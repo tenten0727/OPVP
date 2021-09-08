@@ -72,7 +72,9 @@ def preprocessor_book(file_path):
     df['log_return4'] = df.groupby('time_id')['wap4'].apply(log_return)
 
     df['wap_balance'] = abs(df['wap'] - df['wap2'])
+    df['wap_balance2'] = abs(df['wap3'] - df['wap4'])
     df['price_spread'] = (df['ask_price1'] - df['bid_price1']) / ((df['ask_price1'] + df['bid_price1'])/2)
+    df['price_spread2'] = (df['ask_price2'] - df['bid_price2']) / ((df['ask_price2'] + df['bid_price2'])/2)
     df['bid_spread'] = df['bid_price1'] - df['bid_price2']
     df['ask_spread'] = df['ask_price1'] - df['ask_price2']
     df['total_volume'] = df['ask_size1'] + df['bid_size1'] + df['ask_size2'] + df['bid_size2']
@@ -81,22 +83,24 @@ def preprocessor_book(file_path):
     df['volume_imbalance'] = abs((df['ask_size1'] + df['ask_size2']) - (df['bid_size1'] + df['bid_size2']))
     
     create_feature_dict = {
-        'log_return':[realized_volatility, np.mean, np.std, np.sum],
-        'log_return2':[realized_volatility, np.mean, np.std, np.sum],
-        'log_return3':[realized_volatility, np.mean, np.std, np.sum],
-        'log_return4':[realized_volatility, np.mean, np.std, np.sum],
-        'wap_balance':[np.mean, np.std, np.sum],
-        'price_spread':[np.mean, np.std, np.sum],
-        'bid_spread':[np.mean, np.std, np.sum],
-        'ask_spread':[np.mean, np.std, np.sum],
-        'volume_imbalance':[np.mean, np.std, np.sum],
-        'total_volume':[np.mean, np.std, np.sum],
-        'ask_volume':[np.mean, np.std, np.sum],
-        'bid_volume':[np.mean, np.std, np.sum],
-        'wap':[np.mean, np.std, np.sum],
-        'wap2':[np.mean, np.std, np.sum],
-        'wap3':[np.mean, np.std, np.sum],
-        'wap4':[np.mean, np.std, np.sum],
+        'log_return':[realized_volatility, np.mean, np.std],
+        'log_return2':[realized_volatility, np.mean, np.std],
+        'log_return3':[realized_volatility, np.mean, np.std],
+        'log_return4':[realized_volatility, np.mean, np.std],
+        'wap_balance':[np.mean, np.std, np.max],
+        'wap_balance2':[np.mean, np.std, np.max],
+        'price_spread':[np.mean, np.std, np.max],
+        'price_spread2':[np.mean, np.std, np.max],
+        'bid_spread':[np.mean, np.std, np.max],
+        'ask_spread':[np.mean, np.std, np.max],
+        'volume_imbalance':[np.mean, np.std, np.max],
+        'total_volume':[np.mean, np.std, np.max],
+        'ask_volume':[np.mean, np.std, np.max],
+        'bid_volume':[np.mean, np.std, np.max],
+        'wap':[np.mean, np.std],
+        'wap2':[np.mean, np.std],
+        'wap3':[np.mean, np.std],
+        'wap4':[np.mean, np.std],
     }
     
     df_feature = pd.DataFrame(df.groupby(['time_id']).agg(create_feature_dict)).reset_index()
@@ -122,17 +126,23 @@ def preprocessor_book(file_path):
 def preprocessor_trade(file_path):
     df = pd.read_parquet(file_path)
     df['log_return'] = df.groupby('time_id')['price'].apply(log_return)
+    df['seconds_diff'] = df.groupby('time_id')['seconds_in_bucket'].apply(lambda x: x.diff())
     df['amount'] = df['price'] * df['size']
+    df['amount_seconds_diff'] = df['amount'] * df['seconds_diff']
     df['log_return_per_size'] = df['log_return'] / df['size']
     df['log_return_per_amount'] = df['log_return'] / df['amount']
+    df['log_return_seconds_diff'] = df['log_return'] * df['seconds_diff']
+    # print(df.head())
     aggregate_dictionary = {
         'log_return':[realized_volatility],
         'log_return_per_size':[realized_volatility],
         'log_return_per_amount':[realized_volatility],
+        'log_return_seconds_diff':[realized_volatility],
         'seconds_in_bucket':[count_unique],
-        'size':[np.mean, np.max, np.min],
+        'size':[np.mean, np.max, np.min, np.sum],
         'order_count':[np.mean, np.max, np.sum],
-        'amount':[np.mean, np.max, np.min],
+        'amount':[np.mean, np.max, np.min, np.sum],
+        'amount_seconds_diff':[np.mean, np.max, np.min],
     }
     
     df_feature = df.groupby('time_id').agg(aggregate_dictionary)
@@ -277,6 +287,14 @@ def add_volatility_per_volume(df_train, df_test):
         df_test['volatility3_per_volume_'+str(i)] = df_test['log_return3_realized_volatility_'+str(i)] / df_test['total_volume_mean_'+str(i)]
         df_test['volatility4_per_volume_'+str(i)] = df_test['log_return4_realized_volatility_'+str(i)] / df_test['total_volume_mean_'+str(i)]
 
+    return df_train, df_test
+
+def add_relative_distance(df_train, df_test):
+    mean_stock_col = [col for col in list(df_train) if 'mean_stock' in col]
+    for c in mean_stock_col:
+        col_name = c.replace('_mean_stock', '')
+        df_train[col_name+'_relative'] = df_train[col_name] - df_train[c]
+        df_test[col_name+'_relative'] = df_test[col_name] - df_test[c]
     return df_train, df_test
 
 def add_feature_tau(df_train, df_test):
