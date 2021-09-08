@@ -455,6 +455,7 @@ def create_test_feature(df_train):
 
     df_test['stock_id'] = df_test['stock_id'].astype(int)
     _, df_test = add_volatility_per_volume(df_train, df_test)
+    _, df_test = add_relative_distance(df_train, df_test)
     _, df_test = add_feature_tau(df_train, df_test)
     df_test = get_time_stock(df_test)
 
