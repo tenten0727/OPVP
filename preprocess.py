@@ -295,6 +295,13 @@ def add_relative_distance(df_train, df_test):
         col_name = c.replace('_mean_stock', '')
         df_train[col_name+'_relative'] = df_train[col_name] - df_train[c]
         df_test[col_name+'_relative'] = df_test[col_name] - df_test[c]
+    
+    mean_time_col = [col for col in list(df_train) if 'mean_time' in col]
+    for c in mean_time_col:
+        col_name = c.replace('_mean_time', '')
+        df_train[col_name+'_relative'] = df_train[col_name] - df_train[c]
+        df_test[col_name+'_relative'] = df_test[col_name] - df_test[c]
+
     return df_train, df_test
 
 def add_feature_tau(df_train, df_test):
