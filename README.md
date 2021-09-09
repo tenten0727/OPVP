@@ -232,4 +232,13 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 * StratifiedGroupKfold使うべきでは？
 * 単純なKfoldの方がいいって言ってる人がいた（https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/262185）
 * GroupKFoldで行うと特定の時間帯の予測がかなり困難となってスコアが下がるみたい
-* 
+
+### 20210908
+* stock_id内の平均との差を特徴量に追加
+* time_id内でも同様に作る？
+* stratified k-fold試す
+* test時clusteringの特徴量追加部分でエラー
+* stock_idについて、intで保存したはずなのにobjectになっている。pickleでloadするとなるのか？-> target encodingの際にobjectに変換されてる
+
+### 20210909
+* debug modeを追加（データ減らして動かす）
