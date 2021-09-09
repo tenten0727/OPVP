@@ -59,8 +59,12 @@ nnn = ['time_id',
      'size_tau2_6c1'
      ] 
 
-def preprocessor_book(file_path):
+def preprocessor_book(file_path, debug=False):
     df = pd.read_parquet(file_path)
+    if debug:
+        time_ids = df.time_id.unique()
+        size = min(10, len(time_ids))
+        df = df[df.time_id.isin(time_ids[:size])]
     # df = ffill(df)
     df['wap'] = calc_wap(df)
     df['log_return'] = df.groupby('time_id')['wap'].apply(log_return)
@@ -123,8 +127,12 @@ def preprocessor_book(file_path):
     return df_feature
 
 
-def preprocessor_trade(file_path):
+def preprocessor_trade(file_path, debug=False):
     df = pd.read_parquet(file_path)
+    if debug:
+        time_ids = df.time_id.unique()
+        size = min(10, len(time_ids))
+        df = df[df.time_id.isin(time_ids[:size])]
     df['log_return'] = df.groupby('time_id')['price'].apply(log_return)
     df['seconds_diff'] = df.groupby('time_id')['seconds_in_bucket'].apply(lambda x: x.diff())
     df['amount'] = df['price'] * df['size']
@@ -198,7 +206,7 @@ def preprocessor_trade(file_path):
     return df_feature
 
 
-def preprocessor(list_stock_ids, is_train = True):
+def preprocessor(list_stock_ids, is_train = True, debug=False):
     from joblib import Parallel, delayed #並列処理
     df = pd.DataFrame()
     
@@ -210,7 +218,7 @@ def preprocessor(list_stock_ids, is_train = True):
             file_path_book = data_dir + "book_test.parquet/stock_id=" + str(stock_id)
             file_path_trade = data_dir + "trade_test.parquet/stock_id=" + str(stock_id)  
             
-        df_tmp = pd.merge(preprocessor_book(file_path_book), preprocessor_trade(file_path_trade), on='row_id', how='left')
+        df_tmp = pd.merge(preprocessor_book(file_path_book, debug), preprocessor_trade(file_path_trade, debug), on='row_id', how='left')
         
         return pd.concat([df, df_tmp])
     
@@ -339,32 +347,38 @@ def add_feature_pca(df_train, df_test):
     test_num_data = test_num_data.fillna(train_num_data.mean())
 
     scaler = StandardScaler()
-    train_standard = scaler.fit_transform(train_num_data)
-    test_standard = scaler.transform(test_num_data)
+    train_num_data = scaler.fit_transform(train_num_data)
+    test_num_data = scaler.transform(test_num_data)
     
     # tsne = manifold.TSNE(n_components=2, random_state=55)
     # train_tsne = tsne.fit_transform(train_scaler)
     # test_tsne = tsne.transform(test_scaler)
     
     pca = PCA(n_components=30)
-    train_pca = pca.fit_transform(train_standard)
-    test_pca = pca.transform(test_standard)
+    train_pca = pca.fit_transform(train_num_data)
+    test_pca = pca.transform(test_num_data)
     df_train_pca = pd.DataFrame(train_pca).add_prefix('pca_')
     df_test_pca = pd.DataFrame(test_pca).add_prefix('pca_')
     
     return pd.concat([df_train, df_train_pca], axis=1), pd.concat([df_test, df_test_pca], axis=1)
     
 def add_cluster_feature(df_train, df_test):
-    col_names = list(df_train)
-    col_names.remove('target')
-    col_names.remove('row_id')
-    col_names.remove('stock_id')
-    col_names.remove('time_id')
+    agg_col = [
+        'log_return_realized_volatility',
+        'total_volume_mean',
+        'trade_size_mean',
+        'trade_order_count_mean',
+        'price_spread_mean',
+        'bid_spread_mean',  
+        'ask_spread_mean', 
+        'volume_imbalance_mean',
+        'size_tau2',
+    ]
 
-    train = df_train.replace([np.inf, -np.inf], np.nan)
-    test = df_test.replace([np.inf, -np.inf], np.nan)
+    train = df_train[agg_col+['stock_id', 'time_id']].replace([np.inf, -np.inf], np.nan)
+    test = df_test[agg_col+['stock_id', 'time_id']].replace([np.inf, -np.inf], np.nan)
 
-    for col in col_names:
+    for col in agg_col:
         #正規分布になるよう非線形変換
         qt = QuantileTransformer(random_state=55, n_quantiles=2000, output_distribution='normal')
         train[col] = qt.fit_transform(train[[col]]) #seriesかdataframeかで次元が変わる
@@ -386,17 +400,18 @@ def add_cluster_feature(df_train, df_test):
 
     for n, ind in enumerate(l):
         df_new = train.loc[train['stock_id'].isin(ind)]
-        df_new = df_new.groupby(['time_id']).agg(np.nanmean)
+        df_new = df_new.groupby(['time_id'])[agg_col].agg(np.nanmean)
         df_new.loc[:, 'stock_id'] = str(n) + 'c1'
         mat.append(df_new)
 
-        df_new = test.loc[test['stock_id'].isin(ind) ]    
-        df_new = df_new.groupby(['time_id']).agg(np.nanmean)
-        df_new.loc[:,'stock_id'] = str(n) + 'c1'
+        df_new = test.loc[test['stock_id'].isin(ind)]    
+        df_new = df_new.groupby(['time_id'])[agg_col].agg(np.nanmean)
+        if df_new.shape[0] != 0:
+            df_new.loc[:,'stock_id'] = str(n) + 'c1'
         matTest.append(df_new)
 
     mat1 = pd.concat(mat).reset_index()
-    mat1.drop(columns=['target'], inplace=True)
+    # mat1.drop(columns=['target'], inplace=True)
     mat2 = pd.concat(matTest).reset_index()
 
     matTest = []
@@ -417,17 +432,19 @@ def add_cluster_feature(df_train, df_test):
 
     return df_train, df_test
 
-def create_all_feature():
+def create_all_feature(debug=False):
     train = pd.read_csv(data_dir + 'train.csv')
     train_ids = train.stock_id.unique()
-    df_train = preprocessor(list_stock_ids=train_ids, is_train=True)
+    if debug:
+        train_ids = np.array([0, 1])
+    df_train = preprocessor(list_stock_ids=train_ids, is_train=True, debug=debug)
     train['row_id'] = train['stock_id'].astype(str) + '-' + train['time_id'].astype(str)
     train = train[['row_id', 'target']]
     df_train = train.merge(df_train, on=['row_id'], how='left')
     
     test = pd.read_csv(data_dir + 'test.csv')
     test_ids = test.stock_id.unique()
-    df_test = preprocessor(list_stock_ids= test_ids, is_train = False)
+    df_test = preprocessor(list_stock_ids= test_ids, is_train = False, debug=debug)
     df_test = test.merge(df_test, on = ['row_id'], how = 'left')
     
     #TE
