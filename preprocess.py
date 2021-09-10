@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from utils import calc_wap, calc_wap2, calc_wap3, calc_wap4, log_return, realized_volatility, count_unique, ffill
+from utils import calc_wap, calc_wap2, calc_wap3, calc_wap4, last_value, log_return, realized_volatility, count_unique, up_rate
 from sklearn.model_selection import KFold
 from sklearn import manifold
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, QuantileTransformer
@@ -87,10 +87,10 @@ def preprocessor_book(file_path, debug=False):
     df['volume_imbalance'] = abs((df['ask_size1'] + df['ask_size2']) - (df['bid_size1'] + df['bid_size2']))
     
     create_feature_dict = {
-        'log_return':[realized_volatility, np.mean, np.std],
-        'log_return2':[realized_volatility, np.mean, np.std],
-        'log_return3':[realized_volatility, np.mean, np.std],
-        'log_return4':[realized_volatility, np.mean, np.std],
+        'log_return':[realized_volatility, np.mean, np.std, up_rate, last_value],
+        'log_return2':[realized_volatility, np.mean, np.std, up_rate, last_value],
+        'log_return3':[realized_volatility, np.mean, np.std, up_rate, last_value],
+        'log_return4':[realized_volatility, np.mean, np.std, up_rate, last_value],
         'wap_balance':[np.mean, np.std, np.max],
         'wap_balance2':[np.mean, np.std, np.max],
         'price_spread':[np.mean, np.std, np.max],
@@ -101,10 +101,10 @@ def preprocessor_book(file_path, debug=False):
         'total_volume':[np.mean, np.std, np.max],
         'ask_volume':[np.mean, np.std, np.max],
         'bid_volume':[np.mean, np.std, np.max],
-        'wap':[np.mean, np.std],
-        'wap2':[np.mean, np.std],
-        'wap3':[np.mean, np.std],
-        'wap4':[np.mean, np.std],
+        'wap':[np.mean, np.std, up_rate, last_value],
+        'wap2':[np.mean, np.std, up_rate, last_value],
+        'wap3':[np.mean, np.std, up_rate, last_value],
+        'wap4':[np.mean, np.std, up_rate, last_value],
     }
     
     df_feature = pd.DataFrame(df.groupby(['time_id']).agg(create_feature_dict)).reset_index()
@@ -142,7 +142,7 @@ def preprocessor_trade(file_path, debug=False):
     df['log_return_seconds_diff'] = df['log_return'] * df['seconds_diff']
     # print(df.head())
     aggregate_dictionary = {
-        'log_return':[realized_volatility],
+        'log_return':[realized_volatility, up_rate, last_value],
         'log_return_per_size':[realized_volatility],
         'log_return_per_amount':[realized_volatility],
         'log_return_seconds_diff':[realized_volatility],
@@ -297,6 +297,16 @@ def add_volatility_per_volume(df_train, df_test):
 
     return df_train, df_test
 
+def add_feature_operation(df):
+    df['diff_realized_volatility'] = df['log_return_realized_volatility'] - df['log_return2_realized_volatility']
+    df['diff_realized_volatility2'] = df['log_return3_realized_volatility'] - df['log_return4_realized_volatility']
+    df['diff_stock_id_realized_volatility'] = df['log_return_realized_volatility'] - df['log_return_realized_volatility_mean_stock']
+
+    for i in last_seconds:
+        df['diff_time_realized_volatility_'+str(i)] = df['log_return_realized_volatility_'+str(i)] - df['log_return_realized_volatility']
+        df['diff_stock_id_realized_volatility_'+str(i)] = df['log_return_realized_volatility_'+str(i)] - df['log_return_realized_volatility_'+str(i)+'_mean_stock']
+    return df
+
 def add_relative_distance(df_train, df_test):
     mean_stock_col = [col for col in list(df_train) if 'mean_stock' in col]
     for c in mean_stock_col:
@@ -336,6 +346,8 @@ def add_feature_tau(df_train, df_test):
     # delta tau
     df_train['size_tau2_d'] = df_train['size_tau2_400'] - df_train['size_tau2']
     df_test['size_tau2_d'] = df_test['size_tau2_400'] - df_test['size_tau2']
+    df_train['size_tau_d'] = df_train['size_tau_400'] - df_train['size_tau']
+    df_test['size_tau_d'] = df_test['size_tau_400'] - df_test['size_tau']
     return df_train, df_test
 
 def add_feature_pca(df_train, df_test):
@@ -456,6 +468,8 @@ def create_all_feature(debug=False):
     df_train = get_time_stock(df_train)
     df_test = get_time_stock(df_test)
     df_train, df_test = add_relative_distance(df_train, df_test)
+    df_train = add_feature_operation(df_train)
+    df_test = add_feature_operation(df_test)
 
     df_train['stock_id'] = df_train['stock_id'].astype(int)
     df_test['stock_id'] = df_test['stock_id'].astype(int)
@@ -474,6 +488,7 @@ def create_test_feature(df_train):
     _, df_test = add_feature_tau(df_train, df_test)
     df_test = get_time_stock(df_test)
     _, df_test = add_relative_distance(df_train, df_test)
+    df_test = add_feature_operation(df_test)
 
     df_train['stock_id'] = df_train['stock_id'].astype(int)
     df_test['stock_id'] = df_test['stock_id'].astype(int)

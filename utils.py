@@ -30,6 +30,13 @@ def log_return(list_stock_prices):
 def realized_volatility(series):
     return np.sqrt(np.sum(series**2))
 
+def up_rate(series):
+    return len(series[series.diff() > 0]) / len(series)
+
+def last_value(series):
+    series = series.reset_index(drop = True)
+    return series[len(series)-1] - series.mean()
+
 def count_unique(series):
     return len(np.unique(series))
 
