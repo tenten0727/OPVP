@@ -14,7 +14,7 @@ import os
 import sys
 sys.path.append('..')
 
-from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, calc_mean_importance, calc_model_importance, plot_importance, rmspe, feval_RMSPE
+from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, calc_mean_importance, calc_model_importance, plot_importance, reduce_mem_usage, rmspe, feval_RMSPE
 from preprocess import after_create_feature, create_all_feature
 
 def main():
@@ -44,12 +44,16 @@ def main():
         print('Load data finish!')
         
     # 特徴量保存
+    df_train = reduce_mem_usage(df_train)
+    df_test = reduce_mem_usage(df_test)
     pickle.dump(df_train, open(os.path.join(fm_path, "train.pkl"), 'wb'))
     pickle.dump(df_test, open(os.path.join(fm_path, "test.pkl"), 'wb'))
     print('save data!')
 
     print('after_create_feature...')
     df_train, df_test = after_create_feature(df_train, df_test)
+    df_train = reduce_mem_usage(df_train)
+    df_test = reduce_mem_usage(df_test)
     print('after_create_feature finish!')
 
     X = df_train.drop(['row_id', 'target', 'time_id'],axis=1)
