@@ -480,6 +480,6 @@ def create_test_feature(df_train):
     return df_test
 
 def after_create_feature(df_train, df_test):
-    df_train, df_test = add_feature_pca(df_train, df_test)
+    # df_train, df_test = add_feature_pca(df_train, df_test)
     df_train, df_test = add_cluster_feature(df_train, df_test)
     return df_train, df_test
