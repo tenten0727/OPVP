@@ -238,7 +238,26 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 * time_id内でも同様に作る？
 * stratified k-fold試す
 * test時clusteringの特徴量追加部分でエラー
-* stock_idについて、intで保存したはずなのにobjectになっている。pickleでloadするとなるのか？-> target encodingの際にobjectに変換されてる
+* stock_idについて、intで保存したはずなのにobjectになっている。pickleでloadするとなるのか？-> そんなわけない。target encodingの際にobjectに変換されてる
 
 ### 20210909
 * debug modeを追加（データ減らして動かす）
+
+### 20210910
+* 特徴量選択
+  * 相関係数が高いものを削除
+* ニューラルネットにdropoutとbatchnormは必ずしも効くとは限らない。
+  * https://towardsdatascience.com/pitfalls-with-dropout-and-batchnorm-in-regression-problems-39e02ce08e4d
+* memory削減の関数
+* stock_id=31だけ圧倒的にスコアが悪い問題（https://www.kaggle.com/c/optiver-realized-volatility-prediction/discussion/269282）
+  * stock_id=31だけ別に学習するとか？
+
+
+### 20210912
+* pivotデータ型に注意しないといけないらしい
+
+### 20210920
+* とりあえずtime_idでgroup_k_fold
+* timeの特徴量を消したほうがいい
+* reduce_mem使うとスコアがかなり悪くなる。lgbmの計算に支障出てる？
+* 
