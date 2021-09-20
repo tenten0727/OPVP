@@ -60,7 +60,7 @@ nnn = ['time_id',
      ] 
 
 def preprocessor_book(file_path, debug=False):
-    df = reduce_mem_usage(pd.read_parquet(file_path))
+    df = pd.read_parquet(file_path)
     if debug:
         time_ids = df.time_id.unique()
         size = min(10, len(time_ids))
@@ -128,7 +128,7 @@ def preprocessor_book(file_path, debug=False):
 
 
 def preprocessor_trade(file_path, debug=False):
-    df = reduce_mem_usage(pd.read_parquet(file_path))
+    df = pd.read_parquet(file_path)
     if debug:
         time_ids = df.time_id.unique()
         size = min(10, len(time_ids))
@@ -324,6 +324,7 @@ def add_relative_distance(df_train, df_test):
 
 def add_feature_tau(df_train, df_test):
     # 単位時間あたりの注文数、エントリー数
+    # 決定木系ではそんな役立たない
     df_train['size_tau'] = np.sqrt(1/df_train['trade_seconds_in_bucket_count_unique'])
     df_test['size_tau'] = np.sqrt(1/df_test['trade_seconds_in_bucket_count_unique'])
     df_train['size_tau_400'] = np.sqrt(1/df_train['trade_seconds_in_bucket_count_unique_400'])
@@ -431,10 +432,12 @@ def add_cluster_feature(df_train, df_test):
     kmeans = []
 
     mat2 = pd.concat([mat2,mat1.loc[mat1.time_id==5]])
+    mat1[agg_col] = mat1[agg_col].astype(float)
     mat1 = mat1.pivot(index='time_id', columns='stock_id')
     mat1.columns = ["_".join(x) for x in mat1.columns.ravel()]
     mat1.reset_index(inplace=True)
 
+    mat2[agg_col] = mat2[agg_col].astype(float)
     mat2 = mat2.pivot(index='time_id', columns='stock_id')
     mat2.columns = ["_".join(x) for x in mat2.columns.ravel()]
     mat2.reset_index(inplace=True)
@@ -449,14 +452,14 @@ def create_all_feature(debug=False):
     train_ids = train.stock_id.unique()
     if debug:
         train_ids = np.array([0, 1])
-    df_train = reduce_mem_usage(preprocessor(list_stock_ids=train_ids, is_train=True, debug=debug))
+    df_train = preprocessor(list_stock_ids=train_ids, is_train=True, debug=debug)
     train['row_id'] = train['stock_id'].astype(str) + '-' + train['time_id'].astype(str)
     train = train[['row_id', 'target']]
     df_train = train.merge(df_train, on=['row_id'], how='left')
     
     test = pd.read_csv(data_dir + 'test.csv')
     test_ids = test.stock_id.unique()
-    df_test = reduce_mem_usage(preprocessor(list_stock_ids= test_ids, is_train = False, debug=debug))
+    df_test = preprocessor(list_stock_ids= test_ids, is_train = False, debug=debug)
     df_test = test.merge(df_test, on = ['row_id'], how = 'left')
     
     #TE
@@ -468,6 +471,7 @@ def create_all_feature(debug=False):
     df_train = get_time_stock(df_train)
     df_test = get_time_stock(df_test)
     df_train, df_test = add_relative_distance(df_train, df_test)
+    df_train, df_test = add_cluster_feature(df_train, df_test)
     df_train = add_feature_operation(df_train)
     df_test = add_feature_operation(df_test)
 
@@ -479,22 +483,18 @@ def create_all_feature(debug=False):
 def create_test_feature(df_train):
     test = pd.read_csv(data_dir + 'test.csv')
     test_ids = test.stock_id.unique()
-    df_test = reduce_mem_usage(preprocessor(list_stock_ids= test_ids, is_train = False))
+    df_test = preprocessor(list_stock_ids= test_ids, is_train = False)
     df_test = test.merge(df_test, on = ['row_id'], how = 'left')
 
-    df_train, df_test = target_encoding(df_train, df_test, is_test=True)
+    _, df_test = target_encoding(df_train, df_test, is_test=True)
 
     _, df_test = add_volatility_per_volume(df_train, df_test)
     _, df_test = add_feature_tau(df_train, df_test)
     df_test = get_time_stock(df_test)
     _, df_test = add_relative_distance(df_train, df_test)
+    _, df_test = add_cluster_feature(df_train, df_test)
     df_test = add_feature_operation(df_test)
 
     df_train['stock_id'] = df_train['stock_id'].astype(int)
     df_test['stock_id'] = df_test['stock_id'].astype(int)
     return df_test
-
-def after_create_feature(df_train, df_test):
-    # df_train, df_test = add_feature_pca(df_train, df_test)
-    df_train, df_test = add_cluster_feature(df_train, df_test)
-    return df_train, df_test
