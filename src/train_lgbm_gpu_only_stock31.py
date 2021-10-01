@@ -5,13 +5,14 @@ pd.set_option('max_rows', 300)
 pd.set_option('max_columns', 300)
 import glob
 import lightgbm as lgbm
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, GroupKFold
 import pickle
 import datetime
 import argparse
 
 import os
 import sys
+import re
 sys.path.append('..')
 
 from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, calc_mean_importance, calc_model_importance, plot_importance, reduce_mem_usage, rmspe, feval_RMSPE
@@ -39,46 +40,39 @@ def main():
         print('Load data...')
         with open(opts.train_path+'/train.pkl', 'rb') as f:
             df_train = pickle.load(f)
-        with open(opts.train_path+'/test.pkl', 'rb') as f:
-            df_test = pickle.load(f)
+        # with open(opts.train_path+'/test.pkl', 'rb') as f:
+        #     df_test = pickle.load(f)
         print('Load data finish!')
         
     # 特徴量保存
+    pickle.dump(df_train, open(os.path.join(fm_path, "train.pkl"), 'wb'))
+    # pickle.dump(df_test, open(os.path.join(fm_path, "test.pkl"), 'wb'))
+    print('save data!')
     # df_train = reduce_mem_usage(df_train)
     # df_test = reduce_mem_usage(df_test)
-    pickle.dump(df_train, open(os.path.join(fm_path, "train.pkl"), 'wb'))
-    pickle.dump(df_test, open(os.path.join(fm_path, "test.pkl"), 'wb'))
-    print('save data!')
 
-    X = df_train.drop(['row_id', 'target', 'time_id'],axis=1)
-    y = df_train['target']
-    
-    seed0 = 59
+    X = df_train[df_train.stock_id==31].drop(['row_id', 'target', 'time_id', 'stock_id'],axis=1).reset_index(drop=True)
+    y = df_train[df_train.stock_id==31]['target'].reset_index(drop=True)
+    # columns = [x for x in list(X) if (re.search("stock$", x) == None) and (re.search("time$", x) == None)]
+    # print([x for x in columns if 'stock' in x])
+    # X = X[columns]
+
     params = {
-        'objective': 'rmse',
-        'boosting_type': 'gbdt',
+        "objective": "rmse", 
+        "metric": "rmse", 
+        "boosting_type": "gbdt",
         'early_stopping_rounds': 30,
-        'max_depth': -1,
-        'max_bin':100,
-        'min_data_in_leaf':500,
-        'learning_rate': 0.05,
-        'subsample': 0.72,
-        'subsample_freq': 4,
-        'feature_fraction': 0.4,
-        'lambda_l1': 0.5,
-        'lambda_l2': 1.0,
-        'seed':seed0,
-        'feature_fraction_seed': seed0,
-        'bagging_seed': seed0,
-        'drop_seed': seed0,
-        'data_random_seed': seed0,
-        'n_jobs':-1,
-        'verbose': -1,
-        }
+        'learning_rate': 0.001,
+        'lambda_l1': 1,
+        'lambda_l2': 1,
+        'feature_fraction': 0.9, # 利用する特徴量の割合
+        'bagging_fraction': 0.9,
+        'device':'gpu',
+    }
     
+    kf = KFold(n_splits=5, random_state=55, shuffle=True)
 
-
-    kf = KFold(n_splits=5, random_state=14, shuffle=True)
+    group =df_train['time_id']
     models = []
     scores = 0.0
     
@@ -101,13 +95,14 @@ def main():
                     num_boost_round=5000,         
                     feval=feval_RMSPE,
                     verbose_eval=100,
-                    categorical_feature = ['stock_id']                
+                    # categorical_feature = ['stock_id']                
                     )
         
         y_pred = model.predict(X_valid, num_iteration=model.best_iteration)
 
         RMSPE = round(rmspe(y_true = y_valid, y_pred = y_pred),3)
         print(f'Performance of the　prediction: , RMSPE: {RMSPE}')
+        # print('val_stock_id: ', list(df_train.loc[val_idx, 'stock_id'].unique()))
 
         #keep scores and models
         scores += RMSPE / 5

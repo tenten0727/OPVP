@@ -4,16 +4,19 @@ import matplotlib.pyplot as plt
 pd.set_option('max_rows', 300)
 pd.set_option('max_columns', 300)
 import glob
-import lightgbm as lgbm
-from sklearn.model_selection import KFold
+import optuna.integration.lightgbm as lgbm
+from sklearn.model_selection import KFold, GroupKFold
 import pickle
 import datetime
 import argparse
-
 import os
 import sys
-sys.path.append('..')
+import torch
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
+
+sys.path.append('..')
+from model import denoising_model
 from utils import calc_wap, calc_wap2, log_return, realized_volatility, count_unique, calc_mean_importance, calc_model_importance, plot_importance, reduce_mem_usage, rmspe, feval_RMSPE
 from preprocess import create_all_feature
 
@@ -39,46 +42,58 @@ def main():
         print('Load data...')
         with open(opts.train_path+'/train.pkl', 'rb') as f:
             df_train = pickle.load(f)
-        with open(opts.train_path+'/test.pkl', 'rb') as f:
-            df_test = pickle.load(f)
+        # with open(opts.train_path+'/test.pkl', 'rb') as f:
+        #     df_test = pickle.load(f)
         print('Load data finish!')
         
     # 特徴量保存
+    # pickle.dump(df_train, open(os.path.join(fm_path, "train.pkl"), 'wb'))
+    # pickle.dump(df_test, open(os.path.join(fm_path, "test.pkl"), 'wb'))
+    # print('save data!')
     # df_train = reduce_mem_usage(df_train)
     # df_test = reduce_mem_usage(df_test)
-    pickle.dump(df_train, open(os.path.join(fm_path, "train.pkl"), 'wb'))
-    pickle.dump(df_test, open(os.path.join(fm_path, "test.pkl"), 'wb'))
-    print('save data!')
 
+    train = df_train.drop(['row_id'], axis=1)
+    for col in train.columns.to_list():
+        train[col] = train[col].fillna(train[col].mean())
+
+    scales = train.drop(["stock_id"], axis = 1).columns.to_list()
+
+    scaler = StandardScaler()
+    scaler.fit(train[scales])
+    train[scales] = scaler.transform(train[scales])
+    le = LabelEncoder()
+    le.fit(train["stock_id"])
+    train["stock_id"] = le.transform(train["stock_id"])
+    train_data = torch.tensor(train.drop(['time_id', 'target'], axis=1).values.astype(np.float32))
+
+    output = torch.zeros((train_data.shape[0], 128))
+
+    for i in range(5):
+        print(f'dae{i} start')
+        DAE_model = denoising_model(df_train.shape[1]-3)
+        DAE_model.load_state_dict(torch.load('/home/yoshikawa/work/kaggle/OPVP/output/feature_model/20210923/nb012/DNAEmodel-'+str(i)))
+        DAE_model = DAE_model
+        noise = torch.randn(train_data.shape)
+        output += DAE_model.encode(train_data, noise) / 5
+    
+    df_train = pd.concat([df_train, pd.DataFrame(output.detach().numpy().astype(np.float32))], axis=1)
+    if opts.debug:
+        print(df_train.shape[1])
     X = df_train.drop(['row_id', 'target', 'time_id'],axis=1)
     y = df_train['target']
     
-    seed0 = 59
     params = {
-        'objective': 'rmse',
-        'boosting_type': 'gbdt',
-        'early_stopping_rounds': 30,
-        'max_depth': -1,
-        'max_bin':100,
-        'min_data_in_leaf':500,
+        "objective": "rmse", 
+        "metric": "rmse", 
+        "boosting_type": "gbdt",
+        'early_stopping_rounds': 50,
         'learning_rate': 0.05,
-        'subsample': 0.72,
-        'subsample_freq': 4,
-        'feature_fraction': 0.4,
-        'lambda_l1': 0.5,
-        'lambda_l2': 1.0,
-        'seed':seed0,
-        'feature_fraction_seed': seed0,
-        'bagging_seed': seed0,
-        'drop_seed': seed0,
-        'data_random_seed': seed0,
-        'n_jobs':-1,
-        'verbose': -1,
-        }
+    }
     
 
+    kf = KFold(n_splits=5, random_state=55, shuffle=True)
 
-    kf = KFold(n_splits=5, random_state=14, shuffle=True)
     models = []
     scores = 0.0
     
@@ -94,22 +109,25 @@ def main():
         
         weights = 1/np.square(y_valid)
         lgbm_valid = lgbm.Dataset(X_valid, y_valid, reference=lgbm_train, weight=weights)
-        
+
         model = lgbm.train(params=params,
                     train_set=lgbm_train,
                     valid_sets=[lgbm_train, lgbm_valid],
-                    num_boost_round=5000,         
+                    num_boost_round=5000,
                     feval=feval_RMSPE,
                     verbose_eval=100,
-                    categorical_feature = ['stock_id']                
+                    categorical_feature = ['stock_id'],
                     )
         
+        best_params = model.params
         y_pred = model.predict(X_valid, num_iteration=model.best_iteration)
 
         RMSPE = round(rmspe(y_true = y_valid, y_pred = y_pred),3)
         print(f'Performance of the　prediction: , RMSPE: {RMSPE}')
+        # print('val_stock_id: ', list(df_train.loc[val_idx, 'stock_id'].unique()))
 
-        #keep scores and models
+        print('Best Params:', best_params)
+        #keep scores andmodels
         scores += RMSPE / 5
         models.append(model)
         print("*" * 100)

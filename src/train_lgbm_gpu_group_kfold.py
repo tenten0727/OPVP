@@ -39,13 +39,13 @@ def main():
         print('Load data...')
         with open(opts.train_path+'/train.pkl', 'rb') as f:
             df_train = pickle.load(f)
-        with open(opts.train_path+'/test.pkl', 'rb') as f:
-            df_test = pickle.load(f)
+        # with open(opts.train_path+'/test.pkl', 'rb') as f:
+        #     df_test = pickle.load(f)
         print('Load data finish!')
         
     # 特徴量保存
     pickle.dump(df_train, open(os.path.join(fm_path, "train.pkl"), 'wb'))
-    pickle.dump(df_test, open(os.path.join(fm_path, "test.pkl"), 'wb'))
+    # pickle.dump(df_test, open(os.path.join(fm_path, "test.pkl"), 'wb'))
     print('save data!')
     # df_train = reduce_mem_usage(df_train)
     # df_test = reduce_mem_usage(df_test)

@@ -478,6 +478,14 @@ def create_all_feature(debug=False):
     df_train['stock_id'] = df_train['stock_id'].astype(int)
     df_test['stock_id'] = df_test['stock_id'].astype(int)
     
+    # df_train['stock_id_31'] = 0
+    # idx = df_train[df_train.stock_id == 31].index
+    # df_train.loc[idx, 'stock_id_31'] = 1
+
+    # df_test['stock_id_31'] = 0
+    # idx = df_test[df_test.stock_id == 31].index
+    # df_test.loc[idx, 'stock_id_31'] = 1
+
     return df_train, df_test
 
 def create_test_feature(df_train):
@@ -497,4 +505,9 @@ def create_test_feature(df_train):
 
     df_train['stock_id'] = df_train['stock_id'].astype(int)
     df_test['stock_id'] = df_test['stock_id'].astype(int)
+
+    # df_test['stock_id_31'] = 0
+    # idx = df_test[df_test.stock_id == 31].index
+    # df_test.loc[idx, 'stock_id_31'] = 1
+
     return df_test

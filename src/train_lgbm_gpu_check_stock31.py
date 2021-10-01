@@ -69,13 +69,13 @@ def main():
     }
     
 
-    kf = KFold(n_splits=5, random_state=55, shuffle=True)
+    kf = GroupKFold(n_splits=5)
 
-    group =df_train['time_id']
+    group =df_train.drop(df_train[df_train.stock_id==31].index)['time_id']
     models = []
     scores = 0.0
     
-    for fold, (trn_idx, val_idx) in enumerate(kf.split(X, y)):
+    for fold, (trn_idx, val_idx) in enumerate(kf.split(X, groups=group)):
         print(f'Fold: {fold+1}')
         X_train, y_train = X.loc[trn_idx], y.loc[trn_idx]
         X_valid, y_valid = X.loc[val_idx], y.loc[val_idx]

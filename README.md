@@ -260,4 +260,50 @@ stock_id で分割された parquet ファイル。実際に実行されたト�
 * とりあえずtime_idでgroup_k_fold
 * timeの特徴量を消したほうがいい
 * reduce_mem使うとスコアがかなり悪くなる。lgbmの計算に支障出てる？
+* stock_id=31抜きで学習し、推論を行ったところかなり悪い結果となった。
+> Performance of the　prediction: , RMSPE: 0.189
+> 
+> Performance of the　prediction stock_id=31: , RMSPE: 1.223
+
+* 31は別で学習したほうがいいな（他にも別で学習したほうがいいやつありそうだけど）
+* nb021: 31かどうかの特徴量を追加してみるか
+  * cvスコア下がった
+  * 別で学習したほうが良さげ
+  * 別で学習して合体させる方法試してみたが、それほど変わらなかった。
+* group_k_foldかなりスコア上がった。time_idでのgroup_k_foldのモデル使うべきな気がするーーー
+
+### 20210921
+> RuntimeError: CUDA error: device-side assert triggered
+* cudaのエラー
+  * modelの入力のサイズが違うから？消えないな
+  * cudaのバージョンは変えたけどダメだった
+  * .to(torch.device('cuda:0'))、cuda()どっちでも関係なかった
+  * 1foldの時は大丈夫なのに2foldからダメになる
+
+### 20210922
+  * pytorchとcudaをもっかい設定→だめ
+  * 前に動いてたのでもだめだった
+  * gpu変えたら動いた（前のやつ）gpu01はだめだった　05でいけた
+  * updateAEではだめだった
+  * datasetがだめそう
+  * 変数のミス！！後で同じ変数使ってた...
+  * quadroだと動く
+
+
+### 20210923
+* autoencoderで圧縮した特徴量を追加してlgbmを回す
+  * cvさがってる
+
+
+### 20210924
+* optunaでハイパラチューニング
+
+### 20210925
+* group, stratified を使うべきかどうかかなり意見が割れている。リークしているって意見もあるけどLBスコアが高くなっててわからん。
+* output/feature_model/20210920/lgbm_group_kfold_time_id
+* reshapeの際定数で指定したため、Notebook Threw Exception
+
+### 20210926
+* パラメータ変えたモデル色々学習→アンサンブル
+* DAEを最初に学習してからだとCVでリークが起こる可能性がある。バリデーションで使うデータもDAE学習時使ってるから
 * 
